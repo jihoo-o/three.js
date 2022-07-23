@@ -1,8 +1,14 @@
-import * as THREE from './module/three.module.js';
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+// import vertexShader from './shaders/room/vertex.glsl';
+// import fragmentShader from './shaders/room/fragment.glsl';
 
 main();
 
-function main() {
+async function main() {
+    THREE.Cache.enabled = true;
+
     // create context
     const canvas = document.querySelector('#c');
     const gl = new THREE.WebGLRenderer({
@@ -25,94 +31,33 @@ function main() {
 
     // create the scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0.3, 0.5, 0.8);
+    scene.background = new THREE.Color(1, 1, 1);
     const fog = new THREE.Fog('grey', 0, 90);
     scene.fog = fog;
-
-    // GEOMETRY
-    // create the cube
-    const cubeSize = 4;
-    const cubeGeometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize); //x y z
-
-    // Create the Sphere
-    const sphereRadius = 3;
-    const sphereWidthSegments = 32;
-    const sphereHeightSegments = 16;
-    const sphereGeometry = new THREE.SphereGeometry(
-        sphereRadius,
-        sphereWidthSegments,
-        sphereHeightSegments
-    );
-
-    // Create the upright plane
-    const planeWidth = 256;
-    const planeHeight = 128;
-    const planeGeometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
-
-    // MATERIALS
-    const textureLoader = new THREE.TextureLoader();
-
-    const cubeMaterial = new THREE.MeshPhongMaterial({
-        // Phong
-        color: 'pink',
-    });
-
-    const sphereNormalMap = textureLoader.load('textures/sphere_normal.png');
-    sphereNormalMap.wrapS = THREE.RepeatWrapping;
-    sphereNormalMap.wrapT = THREE.RepeatWrapping;
-    // const sphereMaterial = new THREE.MeshLambertMaterial({
-    //     // Lambert
-    //     color: 'yellow',
-    // });
-    const sphereMaterial = new THREE.MeshStandardMaterial({
-        color: 'tan',
-        normalMap: sphereNormalMap,
-    });
-
-    const planeTextureMap = textureLoader.load('textures/pebbles.jpg');
-    planeTextureMap.wrapS = THREE.RepeatWrapping;
-    planeTextureMap.wrapT = THREE.RepeatWrapping;
-    planeTextureMap.repeat.set(16, 16);
-    planeTextureMap.magFilter = THREE.NearestFilter;
-    planeTextureMap.minFilter = THREE.NearestFilter;
-    planeTextureMap.anisotropy = gl.getMaxAnisotropy();
-    const planeNorm = textureLoader.load('textures/pebbles_normal.png');
-    planeNorm.wrapS = THREE.RepeatWrapping;
-    planeNorm.wrapT = THREE.RepeatWrapping;
-    planeNorm.minFilter = THREE.NearestFilter;
-    planeNorm.repeat.set(16, 16);
-    const planeMaterial = new THREE.MeshStandardMaterial({
-        map: planeTextureMap,
-        side: THREE.DoubleSide,
-        normalMap: planeNorm,
-    });
-
-    // MESHES
-    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    cube.position.set(cubeSize + 1, cubeSize + 1, 0);
-    scene.add(cube);
-
-    const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-    sphere.position.set(-sphereRadius - 1, sphereRadius + 2, 0);
-    scene.add(sphere);
-
-    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    plane.rotation.x = Math.PI / 2;
-    scene.add(plane);
 
     //LIGHTS
     const color = 0xffffff;
     const intensity = 0.7;
     const light = new THREE.DirectionalLight(color, intensity);
-    light.target = plane; // 투영 각도
     light.position.set(0, 30, 30);
     scene.add(light);
-    scene.add(light.target);
 
     const ambientColor = 0xffffff;
     const ambientIntensity = 0.2;
     const ambientLight = new THREE.AmbientLight(ambientColor, ambientIntensity);
     scene.add(ambientLight);
+
+    // DRACOLodaer
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('/draco/');
+    dracoLoader.setDecoderPath(
+        'https://www.gstatic.com/draco/versioned/decoders/1.4.0/'
+    );
+
+    // GLTFLoader
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.setDRACOLoader(dracoLoader);
+    // gltfLoader.load();
 
     /**
      * AxesHelper
@@ -131,17 +76,6 @@ function main() {
             camera.aspect = canvas.clientWidth / canvas.clientHeight;
             camera.updateProjectionMatrix();
         }
-
-        // cube.rotation.x += 0.01;
-        // cube.rotation.y += 0.01;
-        // cube.rotation.z += 0.01;
-
-        // sphere.rotation.x += 0.01;
-        // sphere.rotation.y += 0.01;
-        // sphere.rotation.y += 0.01;
-
-        // light.position.x = 20 * Math.cos(time);
-        // light.position.y = 20 * Math.sin(time);
         gl.render(scene, camera);
         requestAnimationFrame(draw);
     }
@@ -159,4 +93,49 @@ function resizeGLToDisplaySize(gl) {
         gl.setSize(width, height, false);
     }
     return needResize;
+}
+
+function getShader(url) {
+    const loader = new THREE.FileLoader();
+    return new Promise((resolve) => {
+        loader.load(
+            url,
+            // onLoad callback
+            function (shader) {
+                resolve(shader);
+            },
+            // onProgress callback
+            function (xhr) {
+                console.log((xhr.loaded / xhr.total) * 100 + '% loaded');
+            },
+            // onError callback
+            function (err) {
+                console.error('An error happened');
+            }
+        );
+    });
+}
+
+async function getTexture(url) {
+    const textureLoader = new THREE.TextureLoader();
+    return new Promise((resolve) => {
+        textureLoader.load(
+            url,
+            // onLoad callback
+            function (texture) {
+                const newTexture = new THREE.Texture(texture);
+                resolve(newTexture);
+            },
+            // onProgress callback currently not supported
+            undefined,
+            // onError callback
+            function (err) {
+                console.error('An error happened.');
+            }
+        );
+    });
+}
+
+async function getMaterial(map, lightMap) {
+    return new THREE.MeshBasicMaterial({ map, lightMap });
 }
