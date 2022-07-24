@@ -19,6 +19,7 @@
     "description": "",
     "dependencies": {
         "glsl-blend": "^1.0.3",
-        "glslify-loader": "^2.0.0"
+        "glslify-loader": "^2.0.0",
+        "three": "^0.142.0"
     }
 }

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import Main from './src/main.js';
 
 // create the scene
 const scene = new THREE.Scene();
@@ -245,7 +246,7 @@ function setWalls() {
 
     let picture = [];
     return new Promise((resolve) => {
-        getTextureMap('/textures/nighthawks.jpg') //
+        getTextureMap('/static/assets/textures/nighthawks.jpg') //
             .then((nighthawks) => {
                 const newPicture = new THREE.Mesh(
                     pictureGeo,
@@ -301,3 +302,7 @@ function setLights({ wall, target }) {
     bulbLight2.target = wall.planeBack;
     // wall.planeFront.add(bulbLight2);
 }
+
+new Main({
+    canvasElement: document.querySelector('#c'),
+});
