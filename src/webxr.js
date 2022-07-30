@@ -122,7 +122,7 @@ export function loadScene() {
 }
 
 // request immersive-ar session with hit-test
-function onRequestSession() {
+export function onRequestSession() {
     console.log('requesting session');
     navigator.xr
         .requestSession('immersive-ar', {
@@ -189,7 +189,6 @@ function render(time, frame) {
 
         if (hitTestSource) {
             var hitTestResults = frame.getHitTestResults(hitTestSource);
-            console.log(viewerRefSpace);
             let viewerPose = frame.getViewerPose(viewerRefSpace);
 
             if (hitTestResults.length > 0) {

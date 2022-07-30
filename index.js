@@ -4,7 +4,7 @@ import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoade
 import { OrbitControls } from '/node_modules/three/examples/jsm/controls/OrbitControls.js';
 
 import Main from './src/main.js';
-import { loadScene } from './src/webxr.js';
+import { loadScene, onRequestSession } from './src/webxr.js';
 
 // create the scene
 const scene = new THREE.Scene();
@@ -33,6 +33,20 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.set(10, 30, 20);
 
 let controls;
+let INTERSECTED;
+let planeBack;
+
+/**
+ * Raycaster requirements
+ */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+window.addEventListener('pointermove', onPointerMove);
+canvas.addEventListener('click', (e) => {
+    onPointerMove(e);
+    console.log(INTERSECTED);
+    INTERSECTED && INTERSECTED.name === 'picture' && onRequestSession();
+});
 
 main();
 loadScene(); //
@@ -83,7 +97,6 @@ async function main() {
 
     // controls
     controls = new OrbitControls(camera, gl.domElement);
-    controls.addEventListener('change', render);
     controls.minDistance = 10;
     controls.maxDistance = 30;
     controls.enablePan = true;
@@ -91,13 +104,28 @@ async function main() {
     requestAnimationFrame(draw);
 }
 
-function render(controls) {
-    gl.render(scene, camera);
-}
-
 function draw(time) {
     time *= 0.001;
     controls.update();
+
+    // Raycaster implementation
+    raycaster.setFromCamera(pointer, camera);
+    const intersects = raycaster.intersectObjects(planeBack.children, false);
+    if (intersects.length > 0) {
+        if (intersects.length >= 2) console.log(intersects); //
+
+        if (INTERSECTED != intersects[0].object) {
+            if (INTERSECTED)
+                INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
+            INTERSECTED = intersects[0].object;
+            INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
+            INTERSECTED.material.emissive.setHex(0xff0000);
+        }
+    } else {
+        if (INTERSECTED)
+            INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
+        INTERSECTED = null;
+    }
 
     // frame buffer
     if (resizeGLToDisplaySize(gl)) {
@@ -112,19 +140,20 @@ function draw(time) {
 function init() {
     THREE.Cache.enabled = true;
 
+    /**
+     * Helpers below interrupt Raycaster detecting intersected objects.
+     */
     // GridHelper
     const size = 100;
     const divisions = 20;
-
     const gridHelper = new THREE.GridHelper(size, divisions);
-    scene.add(gridHelper);
-
+    // scene.add(gridHelper);
     /**
      * AxesHelper
      * The X axis is red. The Y axis is green. The Z axis is blue.
      */
     const axesHelper = new THREE.AxesHelper(5);
-    scene.add(axesHelper);
+    // scene.add(axesHelper);
 }
 
 // UPDATE RESIZE
@@ -215,10 +244,11 @@ function setWalls() {
     planeFront.rotateY(Math.PI);
     scene.add(planeFront);
 
-    const planeBack = new THREE.Mesh(
+    planeBack = new THREE.Mesh(
         planeGeo2,
         new THREE.MeshPhongMaterial({ color: 0xffffff })
     );
+    planeBack.name = 'wall';
     planeBack.position.z = -wallWidth / 2;
     planeBack.position.y = wallWidth / 2;
     // planeBack.rotateY(Math.PI);
@@ -251,13 +281,13 @@ function setWalls() {
     return new Promise((resolve) => {
         getTextureMap('/static/assets/textures/nighthawks.jpg') //
             .then((nighthawks) => {
-                const newPicture = new THREE.Mesh(
-                    pictureGeo,
-                    new THREE.MeshStandardMaterial({
-                        map: nighthawks,
-                        side: THREE.DoubleSide,
-                    })
-                );
+                const newPictureMat = new THREE.MeshStandardMaterial({
+                    map: nighthawks,
+                    side: THREE.DoubleSide,
+                });
+                newPictureMat.name = 'picture material';
+                const newPicture = new THREE.Mesh(pictureGeo, newPictureMat);
+                newPicture.name = 'picture';
                 newPicture.position.z = 0.1;
                 picture.push(newPicture);
                 planeBack.add(newPicture);
@@ -309,3 +339,10 @@ function setLights({ wall, target }) {
 // new Main({
 //     canvasElement: document.querySelector('#c'),
 // });
+
+function onPointerMove(event) {
+    // calculate pointer position in normalized device coordinates
+    // (-1 to +1) for both components
+    pointer.x = (event.clientX / canvas.width) * 2 - 1;
+    pointer.y = -(event.clientY / canvas.height) * 2 + 1;
+}
