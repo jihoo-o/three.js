@@ -34,6 +34,7 @@ camera.position.set(10, 30, 20);
 
 let controls;
 let INTERSECTED;
+let initRaycaster = false;
 let planeBack;
 
 /**
@@ -44,7 +45,6 @@ const pointer = new THREE.Vector2();
 window.addEventListener('pointermove', onPointerMove);
 canvas.addEventListener('click', (e) => {
     onPointerMove(e);
-    console.log(INTERSECTED);
     INTERSECTED && INTERSECTED.name === 'picture' && onRequestSession();
 });
 
@@ -67,33 +67,36 @@ async function main() {
     // scene.add(ambientLight);
 
     // DRACOLodaer
-    // const dracoLoader = new DRACOLoader();
-    // dracoLoader.setDecoderPath('/draco/');
-    // dracoLoader.setDecoderPath(
-    //     'https://www.gstatic.com/draco/versioned/decoders/1.4.0/'
-    // );
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('/static/draco/');
+    dracoLoader.setDecoderPath(
+        'https://www.gstatic.com/draco/versioned/decoders/1.4.0/'
+    );
 
     // GLTFLoader
-    // const gltfLoader = new GLTFLoader();
-    // gltfLoader.setDRACOLoader(dracoLoader);
-    // gltfLoader.load();
+    const gltfLoader = new GLTFLoader();
+    gltfLoader.setDRACOLoader(dracoLoader);
+    gltfLoader.load('/static/assets/models/Gallery/gallery.gltf', (gltf) => {
+        scene.add(gltf.scene);
+        initRaycaster = true;
+    });
 
     // walls
-    const {
-        planeTop,
-        planeBack,
-        planeBottom,
-        planeFront,
-        planeRight,
-        planeLeft,
-        picture,
-    } = await setWalls();
+    // const {
+    //     planeTop,
+    //     planeBack,
+    //     planeBottom,
+    //     planeFront,
+    //     planeRight,
+    //     planeLeft,
+    //     picture,
+    // } = await setWalls();
 
     // lights
-    setLights({
-        wall: { planeBack, planeTop, planeFront },
-        target: picture[0],
-    });
+    // setLights({
+    //     wall: { planeBack, planeTop, planeFront },
+    //     target: picture[0],
+    // });
 
     // controls
     controls = new OrbitControls(camera, gl.domElement);
@@ -110,21 +113,34 @@ function draw(time) {
 
     // Raycaster implementation
     raycaster.setFromCamera(pointer, camera);
-    const intersects = raycaster.intersectObjects(planeBack.children, false);
-    if (intersects.length > 0) {
-        if (intersects.length >= 2) console.log(intersects); //
-
-        if (INTERSECTED != intersects[0].object) {
+    if (initRaycaster) {
+        if (scene.children[1].children[1].name !== 'painting') return;
+        let raycasterTarget = [];
+        raycasterTarget = [
+            ...raycasterTarget,
+            ...scene.children[1].children[1].children,
+        ];
+        raycasterTarget = [
+            ...raycasterTarget,
+            ...scene.children[1].children[3].children,
+        ];
+        const intersects = raycaster.intersectObjects(raycasterTarget, false);
+        if (intersects.length > 0) {
+            if (INTERSECTED != intersects[0].object) {
+                if (INTERSECTED)
+                    INTERSECTED.material.emissive.setHex(
+                        INTERSECTED.currentHex
+                    );
+                INTERSECTED = intersects[0].object;
+                console.log(INTERSECTED.name);
+                INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
+                INTERSECTED.material.emissive.setHex(0xff0000);
+            }
+        } else {
             if (INTERSECTED)
                 INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
-            INTERSECTED = intersects[0].object;
-            INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
-            INTERSECTED.material.emissive.setHex(0xff0000);
+            INTERSECTED = null;
         }
-    } else {
-        if (INTERSECTED)
-            INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
-        INTERSECTED = null;
     }
 
     // frame buffer
