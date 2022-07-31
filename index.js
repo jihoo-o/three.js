@@ -2,6 +2,7 @@ import * as THREE from '/node_modules/three/build/three.module.js';
 import { GLTFLoader } from '/node_modules/three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from '/node_modules/three/examples/jsm/loaders/DRACOLoader.js';
 import { OrbitControls } from '/node_modules/three/examples/jsm/controls/OrbitControls.js';
+import { USDZExporter } from '/node_modules/three/examples/jsm/exporters/USDZExporter.js';
 
 import Main from './src/main.js';
 import { loadScene, onRequestSession } from './src/webxr.js';
@@ -45,7 +46,10 @@ window.addEventListener('pointermove', onPointerMove);
 canvas.addEventListener('click', (e) => {
     onPointerMove(e);
     console.log(INTERSECTED);
-    INTERSECTED && INTERSECTED.name === 'picture' && onRequestSession();
+    if (INTERSECTED && INTERSECTED.name === 'picture') {
+        canvas.classList.add('hidden');
+        onRequestSession();
+    }
 });
 
 main();
@@ -88,6 +92,7 @@ async function main() {
         planeLeft,
         picture,
     } = await setWalls();
+    usdz(picture[0]);
 
     // lights
     setLights({
@@ -102,6 +107,14 @@ async function main() {
     controls.enablePan = true;
 
     requestAnimationFrame(draw);
+}
+
+async function usdz(mesh) {
+    const exporter = new USDZExporter();
+    const arraybuffer = await exporter.parse(mesh);
+    const blob = new Blob([arraybuffer], { type: 'model/vnd.usdz+zip' });
+    const link = document.getElementById('link');
+    link.href = URL.createObjectURL(blob);
 }
 
 function draw(time) {

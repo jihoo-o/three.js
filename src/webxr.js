@@ -1,3 +1,4 @@
+import PictureList from './ARComponents/pictureList.js';
 import * as THREE from '/node_modules/three/build/three.module.js';
 
 // global scene values
@@ -5,7 +6,8 @@ var btn, gl, glCanvas, camera, scene, renderer;
 var controller, reticle;
 let geo, mat;
 
-let uiElement, debugElement;
+let uiElement, debugElement, _pictureList, _ar, _container;
+let initFlag = false;
 
 // global xr value
 var xrSession = null;
@@ -16,6 +18,8 @@ var hitTestSourceRequested = false;
 
 export function loadScene() {
     // setup WebGL
+    _container = document.createElement('div');
+    document.body.appendChild(_container);
     glCanvas = document.createElement('canvas');
     gl = glCanvas.getContext('webgl', { antialias: true });
 
@@ -37,12 +41,19 @@ export function loadScene() {
     renderer = new THREE.WebGLRenderer({
         canvas: glCanvas,
         context: gl,
+        alpha: true,
     });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
-    document.body.appendChild(renderer.domElement);
+    _container.appendChild(renderer.domElement);
     uiElement = document.querySelector('#ui');
+    _ar = document.querySelector('#ar');
+    // uiElement.appendChild(renderer.domElement);
+    _ar.addEventListener('beforexrselect', (ev) => {
+        console.log(ev.type);
+        ev.preventDefault();
+    });
     debugElement = document.querySelector('#debug');
 
     var geometry = new THREE.CylinderBufferGeometry(
@@ -62,29 +73,21 @@ export function loadScene() {
             });
         });
 
-    // controller click event listener
-    function onSelect() {
-        console.log('on select fired...');
-        // var material = new THREE.MeshPhongMaterial({
-        //     color: 0xffffff * Math.random(),
-        // });
-        // var mesh = new THREE.Mesh(geometry, material);
-        // mesh.applyMatrix4(reticle.matrix); // THIS IS A KEY FUNCTION
-        // mesh.scale.y = Math.random() * 2 + 1; // double value of random number then add 1 for height, why?
-        // scene.add(mesh);
-
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.rotation.set(-Math.PI / 2, 0, 0);
-        // mesh.position.set(0, 0, 0.00);
-        mesh.applyMatrix4(reticle.matrix); // THIS IS A KEY FUNCTION
-        // mesh.scale.y = Math.random() * 2 + 1; // double value of random number then add 1 for height, why?
-        scene.add(mesh);
-    }
-
     // get controller WebXR Device API through Three.js
     controller = renderer.xr.getController(0);
-    controller.addEventListener('select', onSelect);
+    // console.log(controller);
+    // controller.addEventListener('select', onSelect);
     scene.add(controller);
+
+    //
+    // controller.addEventListener('beforexrselect', (e) => {
+    //     e.preventDefault();
+    //     // window.alert('clicked 1!');
+    // });
+    // glCanvas.addEventListener('select', () => {
+    //     console.log('canvas click');
+    //     window.alert('canvas click');
+    // });
 
     // reticle and reticle properties
     reticle = new THREE.Mesh(
@@ -120,15 +123,47 @@ export function loadScene() {
             console.log('WebXR not supported: ' + reason);
         });
 }
+// controller click event listener
+function onSelect(e) {
+    // window.alert('xrsessions selected');
+    console.log('on select fired...');
+    // var material = new THREE.MeshPhongMaterial({
+    //     color: 0xffffff * Math.random(),
+    // });
+    // var mesh = new THREE.Mesh(geometry, material);
+    // mesh.applyMatrix4(reticle.matrix); // THIS IS A KEY FUNCTION
+    // mesh.scale.y = Math.random() * 2 + 1; // double value of random number then add 1 for height, why?
+    // scene.add(mesh);
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.rotation.set(-Math.PI / 2, 0, 0);
+    // mesh.position.set(0, 0, 0.00);
+    mesh.applyMatrix4(reticle.matrix); // THIS IS A KEY FUNCTION
+    // mesh.scale.y = Math.random() * 2 + 1; // double value of random number then add 1 for height, why?
+    scene.add(mesh);
+}
 
 // request immersive-ar session with hit-test
 export function onRequestSession() {
     console.log('requesting session');
+
+    /**
+     * Hangable picture list
+     * It only renders the picture list's UI once.
+     * after that, it controls it with a class to change the display style to Block or Hidden.
+     */
+    if (!initFlag) {
+        _pictureList = new PictureList({
+            _parent: document.querySelector('#pictures'),
+        });
+    }
+    initFlag = true;
+
     navigator.xr
         .requestSession('immersive-ar', {
             requiredFeatures: ['hit-test'],
             optionalFeatures: ['local-floor', 'dom-overlay'],
-            domOverlay: { root: uiElement },
+            domOverlay: { root: _ar },
         })
         .then(onSessionStarted)
         .catch((reason) => {
@@ -142,6 +177,7 @@ function onSessionStarted(session) {
     btn.addEventListener('click', endXRSession);
     btn.innerHTML = 'STOP AR';
     xrSession = session;
+    xrSession.addEventListener('select', onSelect); // <-> same as binding to the Controller?
     xrSession.addEventListener('end', endXRSession);
     setupWebGLLayer().then(() => {
         renderer.xr.setReferenceSpaceType('local');
